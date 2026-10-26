@@ -105,9 +105,9 @@ function langBtn(){return '<button class="pill" data-a="lang" aria-label="'+t('l
 function nav(){return '<nav>'+['soc','msg','set'].map(function(k){return '<button data-a="tab" data-k="'+k+'" class="'+(S.tab===k?'on':'')+'" aria-label="'+t(k)+'">'+ic(k)+t(k)+'</button>'}).join('')+'</nav>'}
 /* data */
 async function loadMe(){var r=await sb.from('profiles').select('*').eq('id',U.id).single();ME=r.data||{id:U.id,name:'',created_at:new Date().toISOString()}}
-async function loadFeed(){var r=await sb.from('posts').select('*,profiles(name,created_at)').order('created_at',{ascending:false}).limit(30);if(r.error){toast(t('err')+': '+r.error.message);return}
+async function loadFeed(){var r=await sb.from('posts').select('*,profiles!posts_user_id_fkey(name,created_at)').order('created_at',{ascending:false}).limit(30);if(r.error){toast(t('err')+': '+r.error.message);return}
 var ps=r.data,ids=ps.map(function(p){return p.id}),us=Array.from(new Set(ps.map(function(p){return p.user_id}).concat([U.id])));
-var z={data:[]},res=ids.length?await Promise.all([sb.from('likes').select('post_id,user_id').in('post_id',ids),sb.from('comments').select('post_id,user_id,body,created_at,profiles(name)').in('post_id',ids).order('created_at'),sb.from('follows').select('follower,following').in('following',us)]):[z,z,z];
+var z={data:[]},res=ids.length?await Promise.all([sb.from('likes').select('post_id,user_id').in('post_id',ids),sb.from('comments').select('post_id,user_id,body,created_at,profiles!comments_user_id_fkey(name)').in('post_id',ids).order('created_at'),sb.from('follows').select('follower,following').in('following',us)]):[z,z,z];
 var L=res[0].data||[],C=res[1].data||[],F=res[2].data||[];
 posts=ps.map(function(p){p.likes=L.filter(function(x){return x.post_id===p.id});p.cms=C.filter(function(x){return x.post_id===p.id});p.fols=F.filter(function(x){return x.following===p.user_id});return p})}
 async function loadPeople(){var r=await sb.from('profiles').select('id,name,created_at').neq('id',U.id).order('name');people=r.data||[];
