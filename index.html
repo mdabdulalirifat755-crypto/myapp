@@ -72,7 +72,7 @@ nav button.on{color:var(--a)}
 .auth input{min-height:48px;border-radius:12px;border:1px solid var(--ln);background:var(--card);padding:0 14px;font-size:16px;width:100%}
 .err{color:#FF8A80;font-size:13px;min-height:18px}
 .link{color:var(--a);font-weight:600;min-height:44px}
-.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#222;border:1px solid #444;padding:10px 16px;border-radius:12px;font-size:14px;z-index:9;max-width:90%}
+.toast{position:fixed;word-break:break-word;left:50%;bottom:80px;transform:translateX(-50%);background:#222;border:1px solid #444;padding:10px 16px;border-radius:12px;font-size:14px;z-index:9;max-width:90%}
 .fb{min-height:32px;padding:0 12px;border:1px solid var(--a);color:var(--a);border-radius:16px;font-size:12px;font-weight:600;margin-top:2px}.fb.on{background:var(--a);color:#000}
 </style>
 </head>
@@ -105,7 +105,7 @@ function langBtn(){return '<button class="pill" data-a="lang" aria-label="'+t('l
 function nav(){return '<nav>'+['soc','msg','set'].map(function(k){return '<button data-a="tab" data-k="'+k+'" class="'+(S.tab===k?'on':'')+'" aria-label="'+t(k)+'">'+ic(k)+t(k)+'</button>'}).join('')+'</nav>'}
 /* data */
 async function loadMe(){var r=await sb.from('profiles').select('*').eq('id',U.id).single();ME=r.data||{id:U.id,name:'',created_at:new Date().toISOString()}}
-async function loadFeed(){var r=await sb.from('posts').select('*,profiles(name,created_at)').order('created_at',{ascending:false}).limit(30);if(r.error){toast(t('err'));return}
+async function loadFeed(){var r=await sb.from('posts').select('*,profiles(name,created_at)').order('created_at',{ascending:false}).limit(30);if(r.error){toast(t('err')+': '+r.error.message);return}
 var ps=r.data,ids=ps.map(function(p){return p.id}),us=Array.from(new Set(ps.map(function(p){return p.user_id}).concat([U.id])));
 var z={data:[]},res=ids.length?await Promise.all([sb.from('likes').select('post_id,user_id').in('post_id',ids),sb.from('comments').select('post_id,user_id,body,created_at,profiles(name)').in('post_id',ids).order('created_at'),sb.from('follows').select('follower,following').in('following',us)]):[z,z,z];
 var L=res[0].data||[],C=res[1].data||[],F=res[2].data||[];
@@ -143,11 +143,11 @@ async function showProfile(id){var p=id===U.id?ME:people.filter(function(x){retu
 var a=await sb.from('follows').select('follower',{count:'exact',head:true}).eq('following',id),b=await sb.from('follows').select('follower').eq('following',id).eq('follower',U.id);
 sheet={id:p.id,name:p.name,created_at:p.created_at,fols:a.count||0,isF:(b.data||[]).length>0};render()}
 async function toggleFollow(id){var isF=posts.some(function(p){return p.user_id===id&&p.fols.some(function(x){return x.follower===U.id})})||(sheet&&sheet.id===id&&sheet.isF);
-var r=isF?await sb.from('follows').delete().eq('follower',U.id).eq('following',id):await sb.from('follows').insert({follower:U.id,following:id});if(r.error){toast(t('err'));return}
+var r=isF?await sb.from('follows').delete().eq('follower',U.id).eq('following',id):await sb.from('follows').insert({follower:U.id,following:id});if(r.error){toast(t('err')+': '+r.error.message);return}
 if(sheet&&sheet.id===id){sheet.isF=!isF;sheet.fols+=isF?-1:1}await loadFeed();render()}
 async function toggleLike(id){var p=posts.filter(function(x){return x.id===id})[0],has=p.likes.some(function(x){return x.user_id===U.id});
 if(has){p.likes=p.likes.filter(function(x){return x.user_id!==U.id})}else{p.likes.push({post_id:id,user_id:U.id})}render();
-var r=has?await sb.from('likes').delete().eq('post_id',id).eq('user_id',U.id):await sb.from('likes').insert({post_id:id,user_id:U.id});if(r.error){toast(t('err'));refresh()}}
+var r=has?await sb.from('likes').delete().eq('post_id',id).eq('user_id',U.id):await sb.from('likes').insert({post_id:id,user_id:U.id});if(r.error){toast(t('err')+': '+r.error.message);refresh()}}
 function resize(f){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var s=Math.min(1,1080/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(function(b){b?ok(b):no()},'image/jpeg',.82)};im.onerror=no;im.src=r.result};r.onerror=no;r.readAsDataURL(f)})}
 async function doPost(){var cap=document.getElementById('cap').value.trim();if(!cap&&!tmpFile){toast(t('need'));return}if(tmpFile&&tmpFile.size>50*1048576){toast(t('big'));return}
 busy=true;render();document.getElementById('cap').value=cap;var url=null,type=null;
@@ -155,9 +155,9 @@ try{if(tmpFile){var isV=tmpFile.type.indexOf('video')===0,blob=isV?tmpFile:await
 var up=await sb.storage.from('media').upload(path,blob,{contentType:isV?tmpFile.type:'image/jpeg'});if(up.error)throw up.error;url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;type=isV?'video':'image'}
 var r=await sb.from('posts').insert({user_id:U.id,caption:cap,media_url:url,media_type:type});if(r.error)throw r.error;
 sheet=null;tmpFile=null;tmpURL=null;busy=false;await loadFeed();render();var f=document.getElementById('feed');if(f)f.scrollTop=0}
-catch(e){busy=false;toast(t('err'));render()}}
+catch(e){busy=false;render();toast(t('err')+': '+(e&&e.message?e.message:JSON.stringify(e)))}}
 async function openChat(id){sheet=null;S.tab='msg';S.open=id;render()}
-async function sendMsg(id,v){var r=await sb.from('messages').insert({sender:U.id,receiver:id,body:v}).select().single();if(r.error){toast(t('err'));return}(msgs[id]=msgs[id]||[]).push(r.data);appendMsg(r.data,id)}
+async function sendMsg(id,v){var r=await sb.from('messages').insert({sender:U.id,receiver:id,body:v}).select().single();if(r.error){toast(t('err')+': '+r.error.message);return}(msgs[id]=msgs[id]||[]).push(r.data);appendMsg(r.data,id)}
 function appendMsg(x,other){if(S.tab==='msg'&&S.open===other){var m=document.getElementById('msgs');if(m){if(m.firstChild&&!msgs[other].slice(0,-1).length)m.innerHTML='';m.insertAdjacentHTML('beforeend',mHTML(x));m.scrollTop=m.scrollHeight;return}}render()}
 var rt=null,tm=null;
 function subscribe(){if(rt)sb.removeChannel(rt);rt=sb.channel('live').on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'receiver=eq.'+U.id},function(p){var x=p.new;(msgs[x.sender]=msgs[x.sender]||[]).push(x);if(!people.some(function(a){return a.id===x.sender}))loadPeople().then(render);else appendMsg(x,x.sender)})
@@ -182,7 +182,7 @@ if(f.id==='af'){if(busy)return;var d=new FormData(f),em=d.get('email').trim(),pw
 var r=su?await sb.auth.signUp({email:em,password:pw,options:{data:{name:(d.get('name')||'').trim()}}}):await sb.auth.signInWithPassword({email:em,password:pw});busy=false;
 if(r.error){S.err=r.error.message;render();return}if(!r.data.session){S.err=t('err');render();return}U=r.data.session.user;await boot();return}
 var v=f.elements.v.value.trim();if(!v)return;var id=f.dataset.id;
-if(f.dataset.f==='cm'){f.elements.v.value='';var r2=await sb.from('comments').insert({post_id:id,user_id:U.id,body:v});if(r2.error){toast(t('err'));return}await loadFeed();render();var c=document.querySelector('.post:nth-child('+(posts.findIndex(function(p){return p.id===id})+1)+') .cms');if(c)c.scrollTop=c.scrollHeight}
+if(f.dataset.f==='cm'){f.elements.v.value='';var r2=await sb.from('comments').insert({post_id:id,user_id:U.id,body:v});if(r2.error){toast(t('err')+': '+r2.error.message);return}await loadFeed();render();var c=document.querySelector('.post:nth-child('+(posts.findIndex(function(p){return p.id===id})+1)+') .cms');if(c)c.scrollTop=c.scrollHeight}
 else{f.elements.v.value='';sendMsg(id,v)}});
 document.addEventListener('input',function(e){var el=e.target;if(el.dataset.i==='name'){clearTimeout(tm);tm=setTimeout(async function(){var n=el.value.trim();var r=await sb.from('profiles').update({name:n}).eq('id',U.id);if(!r.error){ME.name=n;toast(t('saved'))}},700)}if(el.id==='q'){q=el.value;render()}});
 document.addEventListener('change',function(e){if(e.target.id!=='file')return;var f=e.target.files[0];if(!f)return;if(tmpURL)URL.revokeObjectURL(tmpURL);tmpFile=f;tmpURL=URL.createObjectURL(f);var c=document.getElementById('cap').value;render();document.getElementById('cap').value=c});
